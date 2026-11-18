@@ -1,0 +1,22 @@
+{
+  "name": "poppy-sample-company-cloudflare-auth0",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sample Personal Agent Protocol (Poppy) 1.0 Company on Cloudflare Workers, with Auth0 as the OAuth issuer",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --env dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "jose": "^6.2.17"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261117.1",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0",
+    "wrangler": "^4.163.0"
+  }
+}

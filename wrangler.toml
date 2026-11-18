@@ -1,0 +1,42 @@
+name = "poppy-sample-company"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# The Company's domain. poppy.json must be served from exactly this host (§3.1), so `make deploy`
+# attaches it to the Worker as a custom domain. It must be a hostname in a zone on your account.
+[vars]
+COMPANY_DOMAIN = "shop.abbaspour.net"
+COMPANY_NAME = "Poppy Sample Shop"
+# The Auth0 issuer, exactly as its metadata's "issuer" (with its trailing slash). Its metadata must
+# list https://{COMPANY_DOMAIN} in protected_resources (§3.2). Empty: signed-out Sessions only.
+AUTH0_ISSUER = "https://shop-auth.abbaspour.net/"
+
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "7f3a9c86b2534cb782f2189a563ee9cf"   # make kv
+
+# One Durable Object per conversation (§8): ordered events, and reads that wait for the next one
+[[durable_objects.bindings]]
+name = "CONVERSATIONS"
+class_name = "ConversationObject"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ConversationObject"]
+
+# Local development: `make dev` serves the Company on http://localhost:8787 and accepts Personal
+# Agents whose metadata is on http://localhost. Never deploy this environment.
+[env.dev]
+[env.dev.vars]
+COMPANY_DOMAIN = "localhost:8787"
+COMPANY_NAME = "Poppy Sample Shop (dev)"
+DEV_ALLOW_HTTP = "true"
+
+[[env.dev.kv_namespaces]]
+binding = "SESSIONS"
+id = "dev-sessions"
+
+[[env.dev.durable_objects.bindings]]
+name = "CONVERSATIONS"
+class_name = "ConversationObject"
