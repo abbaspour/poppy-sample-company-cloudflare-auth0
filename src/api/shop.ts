@@ -11,12 +11,17 @@ export const PRODUCTS = [
 // responses depend on the Session, so shared caches must not reuse them
 const PRIVATE = { "cache-control": "private, no-store" };
 
-function cartView(ctx: Context) {
-  const items = ctx.session.record.cart.map((item) => {
+/** A Session's cart with names and totals. The website shows the same cart the API does. */
+export function cartSummary(sid: string, cart: { sku: string; quantity: number }[]) {
+  const items = cart.map((item) => {
     const product = PRODUCTS.find((p) => p.sku === item.sku);
     return { ...item, name: product?.name, line_total: (product?.price ?? 0) * item.quantity };
   });
-  return { sid: ctx.session.sid, items, total: items.reduce((sum, i) => sum + i.line_total, 0), currency: "USD" };
+  return { sid, items, total: items.reduce((sum, i) => sum + i.line_total, 0), currency: "USD" };
+}
+
+function cartView(ctx: Context) {
+  return cartSummary(ctx.session.sid, ctx.session.record.cart);
 }
 
 /** GET /api/products */

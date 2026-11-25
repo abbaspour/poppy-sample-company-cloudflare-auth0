@@ -10,6 +10,7 @@ here depends on it.
 | Path                                        | Session header | What it is                                                                                                                   |
 |---------------------------------------------|----------------|------------------------------------------------------------------------------------------------------------------------------|
 | `GET /`                                     | no             | The website: HTML that says who is visiting (see [Website](#website)). Without `Accept: text/html` it is a JSON description |
+| `GET /cart`, `GET /orders`                  | no             | The website's pages: an agent's Session's cart, and the account's orders (see [Website](#website))                           |
 | `GET /auth/login`, `/auth/callback`, `/auth/logout` | no     | The website's Auth0 login, by `@auth0/auth0-hono`. Off until the website's application is configured                        |
 | `GET /.well-known/poppy.json`               | no             | Discovery document (§3)                                                                                                      |
 | `GET /.well-known/oauth-protected-resource` | no             | RFC 9728 metadata naming the issuer. Returns 404 while no `AUTH0_ISSUER` is set, which means signed-out Sessions only (§3.2) |
@@ -90,6 +91,20 @@ The website applies the agent's scopes rather than treating the join as the acco
 join's tokens carry only what the user approved. An agent's session lasts as long as its ID token,
 at most 2 hours with no refresh token, and the website stops honoring it after that.
 `poppy-bash`'s `browser-join.sh` does the agent's side.
+
+### One Session at the APIs and the website
+
+The agent's Session at the APIs and its browser's session at the website are the same Session (§6).
+The ID token's `act` names the agent (its metadata URL, as `act.sub` when its application isn't
+linked to an Auth0 agent), the Session ID and the User ID. Together they are the key of the Session
+record the APIs keep (`session:{agent}:{sid}:{user}`), and the website reads that record
+(`src/web/poppy-session.ts`). Never by the Session ID alone: agents choose their own, so two agents' or
+two users' can be equal.
+
+- `GET /cart` shows the cart the agent fills through `POST /api/cart/items`, for a guest or a signed-in agent. If the agent hasn't used the APIs in this Session, there is no record yet, and the page says so.
+- `GET /orders` shows the account's orders to a person, and to a signed-in agent only if the user approved `orders:read` for it. Otherwise it answers 403 with a page that names the missing scope (§6), so the agent can ask for it. A guest has no account, so it gets 403 too.
+- **The website stops acting for a Session the Company has ended** (§5.5): when the record is `ended` (`DELETE /api/session`), the visitor is treated as signed out and the page says why. It does the same when the Session is signed in to another account than the login (§5.4). The cookie still exists until it expires, but nothing honors it. This is checked on each page, not pushed: revoking the agent at Auth0 doesn't end a join (a beta limit), and the website only learns what the Company's own record says.
+- If `act.sub` is an Auth0 agent ID rather than the metadata URL, the record can't be found from the login and the pages say there is no cart. Link-aware lookup would need a mapping, which this sample doesn't keep.
 
 ## Conversations
 
