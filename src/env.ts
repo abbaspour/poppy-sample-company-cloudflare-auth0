@@ -40,3 +40,13 @@ export function issuer(env: Env): string | undefined {
 export function companyId(env: Env): string {
   return issuer(env) ?? companyOrigin(env);
 }
+
+/**
+ * The Auth0-hosted browser join endpoint (§6), which ends in a login to the website. Undefined until
+ * the Company has an issuer and the website's application: without one it offers no browser join.
+ */
+export function browserSessionEndpoint(env: Env): string | undefined {
+  const iss = issuer(env);
+  if (!iss || !env.AUTH0_CLIENT_ID) return undefined;
+  return `${new URL(iss).origin}/poppy/${encodeURIComponent(env.AUTH0_CLIENT_ID)}/browser-session`;
+}

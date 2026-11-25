@@ -66,5 +66,35 @@ For `make dev`, copy `.dev.vars.example` to `.dev.vars` and fill it in. Locally 
 is `http://localhost:8787`, which isn't the API's identifier, so `.dev.vars` sets `AUTH0_AUDIENCE`.
 
 The website's login uses the tenant's custom domain from `AUTH0_ISSUER`, so ID tokens carry the
-issuer Poppy needs. Joining an agent's browser to its Session (a later step) adds settings to this
-application: browser join, its login URI and anonymous sessions.
+issuer Poppy needs. Joining an agent's browser to its Session (below) adds settings to this application.
+
+### Browser join (§6)
+
+Auth0 hosts the join endpoint, `https://{issuer host}/poppy/{WEB_CLIENT_ID}/browser-session`. Without
+the settings below it answers `The browser session could not be joined` / `target client has no
+HTTPS initiate_login_uri`. On the website's application:
+
+| Setting                             | Value                                                                           |
+|-------------------------------------|---------------------------------------------------------------------------------|
+| `allow_personal_agent_browser_join` | `true`. First-party applications only                                           |
+| `initiate_login_uri`                | `https://{COMPANY_DOMAIN}/auth/login` (Application Login URI)                   |
+| `callbacks`                         | already includes `https://{COMPANY_DOMAIN}/auth/callback`                       |
+| `anonymous_sessions`                | `{ "active": true }`, for guest joins                                           |
+
+On the Company's API (`https://{COMPANY_DOMAIN}`):
+
+- Add the scope `poppy:browser-sign-in`, described "Use the website on your behalf, with the permissions you approve".
+- Turn on **Allow Skipping User Consent** (`skip_consent_for_verifiable_first_party_clients`): the login that ends a join can't show a consent screen.
+- Include agent subject claims (`agent_subject_claims: auth0-v1`), so `act` names the agent.
+- For a guest's website token to be a JWT for the API (optional): `subject_type_authorization.anonymous_user.policy: require_client_grant`, and a client grant for the website's application with `subject_type: anonymous_user`. Without it a guest gets only an opaque `/userinfo` token, which is enough for `/`.
+
+The Personal Agents' applications need `poppy:browser-sign-in` in their client grant for users, and the
+connection users sign in with must be a domain-level connection. The login that ends a join can't show
+prompts: no MFA, consent screen or post-login Action form. If you require MFA, skip it when an actor is present.
+
+Then deploy the Worker with `AUTH0_CLIENT_ID` set: `poppy.json` gains the `web` block, and
+`./discover.sh -d {COMPANY_DOMAIN} -W` in poppy-bash picks it up. Check the endpoint:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://{issuer host}/poppy/{WEB_CLIENT_ID}/browser-session   # 200, not 400
+```

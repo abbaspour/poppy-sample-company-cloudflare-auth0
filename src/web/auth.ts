@@ -24,6 +24,10 @@ export function authConfig(env: Env): Config {
     clientID: env.AUTH0_CLIENT_ID,
     clientSecret: env.AUTH0_CLIENT_SECRET,
     baseURL: companyOrigin(env),
+    // /auth/login is ours (app.ts): it checks the request that ends a browser join before it starts a login
+    customRoutes: ["login"],
+    // A join's session ends with its ID token, so the website needs its `exp`; the SDK drops it by default
+    excludedClaims: ["aud", "iss", "iat", "nbf", "nonce", "azp", "auth_time", "s_hash", "at_hash", "c_hash"],
     // `/` is public: it tells who is visiting, and doesn't require anyone to be signed in
     authRequired: false,
     authorizationParams: { audience: env.AUTH0_AUDIENCE || companyOrigin(env), scope: LOGIN_SCOPE },

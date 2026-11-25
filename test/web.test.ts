@@ -74,22 +74,27 @@ describe("everything else is the Poppy Company", () => {
   });
 });
 
+/** Auth0's discovery document, which auth0-hono fetches when it first needs it. */
+function mockDiscovery() {
+  return vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url);
+    if (url.pathname.endsWith("/.well-known/openid-configuration")) {
+      return Response.json({
+        issuer: ISSUER,
+        authorization_endpoint: `${ISSUER}authorize`,
+        token_endpoint: `${ISSUER}oauth/token`,
+        jwks_uri: `${ISSUER}.well-known/jwks.json`,
+        end_session_endpoint: `${ISSUER}oidc/logout`,
+      });
+    }
+    return new Response("unexpected", { status: 500 });
+  });
+}
+
 describe("/auth/login", () => {
   it("redirects to Auth0 with the Company's audience and the callback", async () => {
     const authorize = new URL(`${ISSUER}authorize`);
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
-      const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url);
-      if (url.pathname.endsWith("/.well-known/openid-configuration")) {
-        return Response.json({
-          issuer: ISSUER,
-          authorization_endpoint: authorize.href,
-          token_endpoint: `${ISSUER}oauth/token`,
-          jwks_uri: `${ISSUER}.well-known/jwks.json`,
-          end_session_endpoint: `${ISSUER}oidc/logout`,
-        });
-      }
-      return new Response("unexpected", { status: 500 });
-    });
+    const fetchMock = mockDiscovery();
     try {
       // its own client ID: auth0() captures `fetch` when it is first built, which must be after the mock
       const res = await get("/auth/login", webEnv({ AUTH0_CLIENT_ID: "web-client-login" }));
@@ -103,6 +108,36 @@ describe("/auth/login", () => {
       expect(rest).not.toHaveBeenCalled();
     } finally {
       fetchMock.mockRestore();
+    }
+  });
+});
+
+describe("browser join: the login Auth0 sends the browser to", () => {
+  it("refuses a login for another issuer before starting anything", async () => {
+    const res = await get("/auth/login?iss=https%3A%2F%2Fevil.example%2F", webEnv());
+    expect(res.status).toBe(400);
+    expect(res.headers.get("set-cookie")).toBeNull();
+    expect(rest).not.toHaveBeenCalled();
+  });
+
+  it("refuses an empty and a repeated iss", async () => {
+    expect((await get("/auth/login?iss=", webEnv())).status).toBe(400);
+    const iss = encodeURIComponent(ISSUER);
+    expect((await get(`/auth/login?iss=${iss}&iss=${iss}`, webEnv())).status).toBe(400);
+  });
+
+  it("starts the login for our issuer, with the Company's audience", async () => {
+    const mock = mockDiscovery();
+    try {
+      const iss = encodeURIComponent(ISSUER);
+      const res = await get(`/auth/login?iss=${iss}&target_link_uri=${encodeURIComponent(`${ORIGIN}/`)}`, webEnv({ AUTH0_CLIENT_ID: "web-client-join" }));
+      expect(res.status).toBe(302);
+      const location = new URL(res.headers.get("location") as string);
+      expect(location.searchParams.get("audience")).toBe(ORIGIN);
+      expect(location.searchParams.get("client_id")).toBe("web-client-join");
+      expect(res.headers.get("set-cookie")).toContain("__a0_tx=");
+    } finally {
+      mock.mockRestore();
     }
   });
 });

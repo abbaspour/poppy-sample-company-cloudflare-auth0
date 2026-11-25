@@ -1,6 +1,6 @@
-import { type Env, PROTOCOL_VERSION, companyOrigin, issuer } from "../env";
+import { type Env, PROTOCOL_VERSION, browserSessionEndpoint, companyOrigin, issuer } from "../env";
 import { CONVERSATIONS_PATH } from "../conversations/routes";
-import { SCOPES } from "../scopes";
+import { BROWSER_SIGN_IN, SCOPES } from "../scopes";
 
 /**
  * GET /.well-known/poppy.json (§3). organization.domain is the host that serves it, with its port
@@ -33,10 +33,16 @@ export function poppyJson(env: Env): Record<string, unknown> {
     tasks: { endpoint: `${origin}/poppy/tasks` },
   };
   if (issuer(env)) {
+    const scopes: Record<string, string> = Object.fromEntries(Object.entries(SCOPES).map(([name, s]) => [name, s.description]));
+    const browserSession = browserSessionEndpoint(env);
+    if (browserSession) scopes[BROWSER_SIGN_IN.name] = BROWSER_SIGN_IN.description;
     doc.auth = {
-      scopes: Object.fromEntries(Object.entries(SCOPES).map(([name, s]) => [name, s.description])),
+      scopes,
       scope_hints: Object.fromEntries(Object.entries(SCOPES).map(([name, s]) => [name, s.hints])),
     };
+    // §6: the browser joins through Auth0's endpoint, which ends in a login to the website. The
+    // website applies the agent's scopes rather than treating the join as the account's full access.
+    if (browserSession) doc.web = { browser_session_endpoint: browserSession, unscoped: false };
   }
   return doc;
 }

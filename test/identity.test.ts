@@ -65,6 +65,25 @@ describe("classifyVisitor", () => {
     expect(classifyVisitor({ sub: "anon_x", sub_profile: "user urn:auth0:anonymous_user" }).kind).toBe("signed_out");
   });
 
+  it("stops honoring an agent's session once its ID token has expired", () => {
+    const claims = { sub: "auth0|alice", act: ACT, exp: 1000 };
+    expect(classifyVisitor(claims, { now: 999 }).kind).toBe("agent_for_user");
+    expect(classifyVisitor(claims, { now: 1000 }).kind).toBe("signed_out");
+    expect(classifyVisitor({ ...claims, sub: "anon_x", sub_profile: "urn:auth0:anonymous_user" }, { now: 2000 }).kind).toBe("signed_out");
+  });
+
+  it("leaves a person's session to the SDK, whatever the ID token's exp", () => {
+    expect(classifyVisitor({ sub: "auth0|alice", exp: 1000 }, { now: 2000 }).kind).toBe("user");
+  });
+
+  it("reports the scopes an agent was approved for, and when its session ends", () => {
+    const v = classifyVisitor({ sub: "auth0|alice", act: ACT, exp: 5000 }, { now: 1, scope: "openid orders:read" });
+    expect(v.scopes).toEqual(["openid", "orders:read"]);
+    expect(v.expiresAt).toBe(5000);
+    expect(classifyVisitor({ sub: "auth0|alice", act: ACT }, { now: 1 }).scopes).toEqual([]);
+    expect(classifyVisitor({ sub: "auth0|alice" }).scopes).toBeUndefined();
+  });
+
   it("is signed out for claims without a subject", () => {
     expect(classifyVisitor({ name: "Alice" }).kind).toBe("signed_out");
   });

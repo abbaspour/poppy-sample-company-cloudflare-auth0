@@ -72,7 +72,24 @@ Login is off until `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET` and `AUTH0_SESSION_E
 [auth0/README.md](auth0/README.md#the-website-regular-web-application), put its client ID in
 `wrangler.toml`, and run `make secrets`. For `make dev`, copy `.dev.vars.example` to `.dev.vars`.
 
-Browser join (an agent's browser joining its Session) isn't implemented yet.
+### Browser join
+
+An agent's browser can join its Session (§6). Auth0 hosts the join endpoint, so the Worker doesn't
+implement one: `poppy.json` lists `web.browser_session_endpoint`
+(`https://{issuer host}/poppy/{AUTH0_CLIENT_ID}/browser-session`) and the scope `poppy:browser-sign-in`,
+once the issuer and `AUTH0_CLIENT_ID` are set. The join runs like this:
+
+1. The agent's browser loads Auth0's endpoint, which gives it a one-time code and a cookie.
+2. The agent authorizes the code at `{endpoint}/authorize` with its `Poppy-Session` header and, signed in, its access token.
+3. The browser submits the code, and Auth0 sends it to this website's Application Login URI, `/auth/login`, with `iss` and `target_link_uri`.
+4. `/auth/login` (`src/web/join.ts`) refuses an `iss` that is empty, repeated, or not `AUTH0_ISSUER`, with a 400 and nothing started. It follows `target_link_uri` only on this origin. Then it starts a normal login, which Auth0 completes without prompts.
+5. The tokens name the agent in `act`, so `/` shows an agent guest or an agent acting on behalf of a user, with the Poppy Session and User IDs, and the scopes the user approved for it.
+
+The website applies the agent's scopes rather than treating the join as the account's full access
+(`web.unscoped` is `false`): the website has no action of its own beyond the APIs, and a signed-in
+join's tokens carry only what the user approved. An agent's session lasts as long as its ID token,
+at most 2 hours with no refresh token, and the website stops honoring it after that.
+`poppy-bash`'s `browser-join.sh` does the agent's side.
 
 ## Conversations
 

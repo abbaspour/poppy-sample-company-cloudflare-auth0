@@ -14,3 +14,13 @@ export const SCOPES = {
 } as const;
 
 export const SCOPE_NAMES = Object.keys(SCOPES);
+
+/**
+ * The one scope the protocol defines (§6): a signed-in browser join needs it. The website applies
+ * the agent's scopes, as the APIs do, so it allows nothing beyond the token's other scopes and the
+ * Company needn't ask the User to approve it separately. It isn't an API scope, so it's not in SCOPES.
+ */
+export const BROWSER_SIGN_IN = {
+  name: "poppy:browser-sign-in",
+  description: "Use the website on your behalf, with the permissions you approve",
+} as const;

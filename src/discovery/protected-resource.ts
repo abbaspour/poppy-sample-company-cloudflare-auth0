@@ -1,6 +1,6 @@
-import { type Env, companyOrigin, issuer } from "../env";
+import { type Env, browserSessionEndpoint, companyOrigin, issuer } from "../env";
 import { json, notFound } from "../http";
-import { SCOPE_NAMES } from "../scopes";
+import { BROWSER_SIGN_IN, SCOPE_NAMES } from "../scopes";
 
 
 /**
@@ -14,6 +14,6 @@ export function protectedResource(env: Env): Response {
   return json({
     resource: companyOrigin(env),
     authorization_servers: [iss],
-    scopes_supported: SCOPE_NAMES,
+    scopes_supported: browserSessionEndpoint(env) ? [...SCOPE_NAMES, BROWSER_SIGN_IN.name] : SCOPE_NAMES,
   });
 }

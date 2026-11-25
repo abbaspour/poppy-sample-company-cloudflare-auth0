@@ -42,6 +42,8 @@ export function renderHome(visitor: Visitor, o: { companyName: string; loginEnab
     ["Name", visitor.name],
     ["Email", visitor.email],
     ...(visitor.agent ? agentRows(visitor.agent) : []),
+    ["Approved scopes", visitor.scopes ? (visitor.scopes.length ? visitor.scopes.join(" ") : "none") : undefined],
+    ["Session ends", visitor.expiresAt ? new Date(visitor.expiresAt * 1000).toISOString() : undefined],
   ]);
 
   // A guest can't sign in from here: it signs in through its agent, which joins the browser again.
