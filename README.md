@@ -9,6 +9,8 @@ here depends on it.
 
 | Path                                        | Session header | What it is                                                                                                                   |
 |---------------------------------------------|----------------|------------------------------------------------------------------------------------------------------------------------------|
+| `GET /`                                     | no             | The website: HTML that says who is visiting (see [Website](#website)). Without `Accept: text/html` it is a JSON description |
+| `GET /auth/login`, `/auth/callback`, `/auth/logout` | no     | The website's Auth0 login, by `@auth0/auth0-hono`. Off until the website's application is configured                        |
 | `GET /.well-known/poppy.json`               | no             | Discovery document (§3)                                                                                                      |
 | `GET /.well-known/oauth-protected-resource` | no             | RFC 9728 metadata naming the issuer. Returns 404 while no `AUTH0_ISSUER` is set, which means signed-out Sessions only (§3.2) |
 | `GET /openapi.json`                         | no             | The API description listed in `apis[]`. Its `servers` URL is where agents send Session headers                               |
@@ -39,6 +41,38 @@ header (§5). Without one, they answer RFC 6750 challenges:
 | Expired, invalid, or issued to another client | `401`, `Bearer error="invalid_token"`                                        |
 | Missing the scope                             | `403`, `Bearer error="insufficient_scope", scope="orders:write"`             |
 | Another account than the Session used before  | `400 {"error": "session_ended"}` (§5.4)                                      |
+
+## Website
+
+The Company also has a small website. [Hono](https://hono.dev) is the Worker's entry point and owns
+`/` and `/auth/*`, with [`@auth0/auth0-hono`](https://github.com/auth0/auth0-hono) for the login.
+Every other path goes to the Poppy code above, unchanged, so the APIs and discovery documents never
+see the website's session cookie.
+
+`GET /` tells who is visiting, from the ID token of the website's session (`src/web/identity.ts`):
+
+| Shows                                    | When                                                                                       |
+|------------------------------------------|--------------------------------------------------------------------------------------------|
+| You are signed out                       | No session                                                                                 |
+| You are signed in as a user              | A login with no Poppy `act` claim                                                          |
+| An agent is browsing as a guest          | An anonymous subject (`sub_profile` has `urn:auth0:anonymous_user`) with a Poppy `act`     |
+| An agent is acting on behalf of a user   | A user's login whose `act` names the agent (`act.poppy_sid` is present)                    |
+
+A guest is never shown as a user, and gets no link to the login page: it signs in through its
+agent. A client that doesn't send `Accept: text/html` gets the Company's name and the same
+classification as JSON (`visitor.kind`: `signed_out`, `user`, `agent_guest` or `agent_for_user`).
+
+The website logs in with the Company's API audience (`https://{COMPANY_DOMAIN}`, or `AUTH0_AUDIENCE`)
+and the scopes `openid profile email offline_access orders:read orders:write`. Agents get their tokens
+for the same audience, which is what lets an agent's browser join end in a login to this website.
+Sessions are in the `SESSIONS` KV namespace, under keys that don't collide with the Poppy Sessions'.
+
+Login is off until `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET` and `AUTH0_SESSION_ENCRYPTION_KEY` are set:
+`/` then says so, and `/auth/*` is a 404. Create the application as described in
+[auth0/README.md](auth0/README.md#the-website-regular-web-application), put its client ID in
+`wrangler.toml`, and run `make secrets`. For `make dev`, copy `.dev.vars.example` to `.dev.vars`.
+
+Browser join (an agent's browser joining its Session) isn't implemented yet.
 
 ## Conversations
 
@@ -114,6 +148,7 @@ them.
 | `make dev`     | Runs the Company locally on `http://localhost:8787`, using the `dev` environment                    |
 | `make login`   | Logs wrangler in to your Cloudflare account (`make whoami` shows which account)                     |
 | `make kv`      | Creates the `SESSIONS` KV namespace, or finds it if it exists, and writes its id to `wrangler.toml` |
+| `make secrets` | Sets the website's `AUTH0_CLIENT_SECRET` (asked for) and `AUTH0_SESSION_ENCRYPTION_KEY` (generated once) |
 | `make dry-run` | Bundles and validates the Worker without uploading it                                               |
 | `make deploy`  | Runs `make check`, then deploys the Worker with `COMPANY_DOMAIN` as its custom domain               |
 | `make smoke`   | Fetches the deployed `poppy.json` and protected resource metadata                                   |

@@ -11,6 +11,9 @@ COMPANY_NAME = "Poppy Sample Shop"
 # The Auth0 issuer, exactly as its metadata's "issuer" (with its trailing slash). Its metadata must
 # list https://{COMPANY_DOMAIN} in protected_resources (§3.2). Empty: signed-out Sessions only.
 AUTH0_ISSUER = "https://shop-auth.abbaspour.net/"
+# The website's Auth0 Regular Web Application (auth0/README.md). Empty: no website login, `/` says so.
+# Its secrets, AUTH0_CLIENT_SECRET and AUTH0_SESSION_ENCRYPTION_KEY, are set with `make secrets`.
+AUTH0_CLIENT_ID = "aZEW8e56qohEUJiW5The29AHltUp03PA"
 
 [[kv_namespaces]]
 binding = "SESSIONS"

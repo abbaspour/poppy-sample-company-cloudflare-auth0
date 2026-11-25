@@ -40,3 +40,31 @@ curl -s https://<tenant>/.well-known/oauth-authorization-server | jq '{issuer, p
 
 Then run `make smoke`, and `./discover.sh -d <COMPANY_DOMAIN> -W` in poppy-bash, which runs every
 discovery check.
+
+## The website: a Regular Web Application
+
+The website's login (`/auth/*`) needs its own application, separate from the Personal Agents'
+applications. Create a **Regular Web Application** in the tenant and set:
+
+| Setting                | Value                                                                                           |
+|------------------------|-------------------------------------------------------------------------------------------------|
+| Allowed Callback URLs  | `https://{COMPANY_DOMAIN}/auth/callback`, and `http://localhost:8787/auth/callback` for `make dev` |
+| Allowed Logout URLs    | `https://{COMPANY_DOMAIN}`, and `http://localhost:8787`                                          |
+| Allowed Web Origins    | the same two origins                                                                            |
+| Grant types            | Authorization Code and Refresh Token                                                            |
+| Application access     | A client grant on the Company's API (`https://{COMPANY_DOMAIN}`) for users, with `orders:read` and `orders:write`. The website logs in with that audience and those scopes; agents' tokens use the same audience |
+| Connections            | The same domain-level connection the Personal Agents' users sign in with                        |
+
+Then give the Worker its settings:
+
+1. Put the application's client ID in `AUTH0_CLIENT_ID` in `wrangler.toml`.
+2. Run `make secrets`. It asks for the client secret and sets `AUTH0_SESSION_ENCRYPTION_KEY` once.
+3. `make deploy`, then open `https://{COMPANY_DOMAIN}/`, log in, and check that the page says you
+   are signed in as a user.
+
+For `make dev`, copy `.dev.vars.example` to `.dev.vars` and fill it in. Locally the Company's origin
+is `http://localhost:8787`, which isn't the API's identifier, so `.dev.vars` sets `AUTH0_AUDIENCE`.
+
+The website's login uses the tenant's custom domain from `AUTH0_ISSUER`, so ID tokens carry the
+issuer Poppy needs. Joining an agent's browser to its Session (a later step) adds settings to this
+application: browser join, its login URI and anonymous sessions.

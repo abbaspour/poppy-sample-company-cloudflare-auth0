@@ -11,13 +11,14 @@ KV_TITLE       ?= poppy-sample-company-sessions
 KV_PLACEHOLDER := REPLACE_WITH_KV_NAMESPACE_ID
 DEV_PORT       ?= 8787
 
-.PHONY: help install test typecheck check dev login whoami kv dry-run deploy tail smoke clean
+.PHONY: help install test typecheck check dev login whoami kv secrets dry-run deploy tail smoke clean
 
 help:
 	@echo "Setup"
 	@echo "  make install    # npm install"
 	@echo "  make login      # log wrangler in to your Cloudflare account"
 	@echo "  make kv         # create the SESSIONS KV namespace and write its id to wrangler.toml"
+	@echo "  make secrets    # set the website's AUTH0_CLIENT_SECRET and AUTH0_SESSION_ENCRYPTION_KEY"
 	@echo "Develop"
 	@echo "  make check      # tests + typecheck"
 	@echo "  make dev        # run locally on http://localhost:$(DEV_PORT) (the dev environment)"
@@ -59,6 +60,19 @@ kv: install
 		echo "wrangler.toml already uses KV namespace $$id"; \
 	else \
 		echo "wrangler.toml has a different KV id; $(KV_TITLE) is $$id" >&2; exit 1; \
+	fi
+
+# The website's secrets (auth0/README.md). The client secret is asked for; the key that encrypts
+# the session cookie is generated, and left alone if it exists: a new one signs everyone out.
+secrets: install
+	@command -v jq >/dev/null || { echo "jq not found" >&2; exit 3; }
+	@printf 'Auth0 web application client secret: ' >&2; IFS= read -rs secret; echo >&2; \
+	[ -n "$$secret" ] || { echo "no secret given" >&2; exit 1; }; \
+	printf %s "$$secret" | $(WRANGLER) secret put AUTH0_CLIENT_SECRET --env=""
+	@if $(WRANGLER) secret list --env="" | jq -e '.[] | select(.name == "AUTH0_SESSION_ENCRYPTION_KEY")' >/dev/null; then \
+		echo "AUTH0_SESSION_ENCRYPTION_KEY is already set"; \
+	else \
+		openssl rand -hex 32 | $(WRANGLER) secret put AUTH0_SESSION_ENCRYPTION_KEY --env=""; \
 	fi
 
 # --- develop ---

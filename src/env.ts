@@ -9,6 +9,14 @@ export interface Env {
   AUTH0_ISSUER?: string;
   /** "true" only in local development: http and loopback URLs for the Company and Personal Agents. */
   DEV_ALLOW_HTTP?: string;
+  /** The website's Auth0 Regular Web Application. The website's login is off until all three are set. */
+  AUTH0_CLIENT_ID?: string;
+  /** The API audience the website logs in with. Default: the Company's origin, which is the API's identifier. */
+  AUTH0_AUDIENCE?: string;
+  /** secret: `wrangler secret put`, or .dev.vars locally */
+  AUTH0_CLIENT_SECRET?: string;
+  /** secret, 32 characters or more: encrypts the website's session cookie */
+  AUTH0_SESSION_ENCRYPTION_KEY?: string;
 }
 
 export const PROTOCOL_VERSION = "1.0";

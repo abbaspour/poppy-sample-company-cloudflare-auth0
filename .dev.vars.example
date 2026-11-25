@@ -1,0 +1,17 @@
+# cp .dev.vars.example .dev.vars, then fill it in. `make dev` reads it; it is gitignored.
+#
+# These switch on the website's Auth0 login on http://localhost:8787. The dev environment has no
+# Auth0 issuer by default (signed-out Poppy Sessions only), so the website needs its own settings.
+# Setting AUTH0_ISSUER here also turns on signed-in Poppy Sessions in dev, whose access tokens
+# would then have to be for http://localhost:8787: leave it out unless you are trying the login.
+
+# The tenant's issuer, exactly as its metadata writes it, with the trailing slash
+AUTH0_ISSUER=https://shop-auth.abbaspour.net/
+# The Company's API identifier. Locally the Company's origin is http://localhost:8787, not the API.
+AUTH0_AUDIENCE=https://shop.abbaspour.net
+
+# The Regular Web Application's credentials (auth0/README.md)
+AUTH0_CLIENT_ID=
+AUTH0_CLIENT_SECRET=
+# 32 characters or more: openssl rand -hex 32
+AUTH0_SESSION_ENCRYPTION_KEY=

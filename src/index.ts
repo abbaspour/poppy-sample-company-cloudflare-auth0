@@ -16,6 +16,7 @@ import type { Env } from "./env";
 import { json } from "./http";
 import { type Deps, type Route, route } from "./router";
 import { SKILL_PATH, getSkill, getTasks, postFeedback } from "./tasks/tasks";
+import { createApp } from "./web/app";
 
 export { ConversationObject } from "./conversations/object";
 
@@ -57,15 +58,16 @@ export async function handle(request: Request, env: Env, deps: Deps): Promise<Re
       return json(openapi(env), 200, { "cache-control": "public, max-age=300" });
     case SKILL_PATH:
       return getSkill();
-    case "/":
-      return json({ name: env.COMPANY_NAME, poppy: "/.well-known/poppy.json" });
   }
 
   return route(ROUTES, request, env, path, deps);
 }
 
+/** The website (`/` and `/auth/*`) is Hono with auth0-hono; everything else is the Poppy Company above. */
+const app = createApp((request, env) => handle(request, env, { fetch: (input, init) => fetch(input, init) }));
+
 export default {
-  fetch(request: Request, env: Env): Promise<Response> {
-    return handle(request, env, { fetch: (input, init) => fetch(input, init) });
+  fetch(request: Request, env: Env, ctx: ExecutionContext): Response | Promise<Response> {
+    return app.fetch(request, env, ctx);
   },
 } satisfies ExportedHandler<Env>;
