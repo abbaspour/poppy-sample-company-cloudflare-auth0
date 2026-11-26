@@ -3,6 +3,7 @@ import { signInRequired } from "../auth/challenge";
 import type { Env } from "../env";
 import { json } from "../http";
 import { directGreeting, respond } from "./agent";
+import { DEFAULT_MODEL } from "./llm";
 
 /**
  * One conversation (§8), in a Durable Object: its events are strictly ordered, requests are acted
@@ -336,6 +337,19 @@ export class ConversationObject {
     meta.queue.push({ kind: "message", requestId, text: message.text ?? "", account: caller.account });
   }
 
+  /** The conversation's messages before a request, oldest first, for the model. A few are enough. */
+  private historyBefore(requestId: string): { role: "user" | "assistant"; text: string }[] {
+    const history: { role: "user" | "assistant"; text: string }[] = [];
+    for (const e of this.events) {
+      const m = e.type === "message" ? (e.message as { id?: string; role?: string; text?: string }) : null;
+      if (m?.id === requestId) break; // this message, and anything after it, isn't history
+      if (m?.text && (m.role === "user" || m.role === "company")) {
+        history.push({ role: m.role === "company" ? "assistant" : "user", text: m.text });
+      }
+    }
+    return history.slice(-8);
+  }
+
   private async act(item: QueueItem): Promise<void> {
     const meta = this.meta!;
     if (meta.closed) return;
@@ -348,6 +362,8 @@ export class ConversationObject {
           direct: meta.parentId !== null,
           userAvailable: typeof meta.context.user_available === "boolean" ? meta.context.user_available : null,
           loadOrders: (account) => loadOrders(this.env.SESSIONS, account),
+          llm: this.env.AI && this.env.AI_MODEL !== "off" ? { ai: this.env.AI, model: this.env.AI_MODEL || DEFAULT_MODEL } : undefined,
+          history: this.historyBefore(item.requestId),
         });
         if (out.authorization) {
           meta.neededScope = out.authorization.join(" ");

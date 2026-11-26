@@ -264,3 +264,75 @@ describe("tasks and feedback (§9)", () => {
     expect(poppy.tasks.endpoint).toBe(`${ORIGIN}/poppy/tasks`);
   });
 });
+
+describe("the Company Agent with a model", () => {
+  const say = (content: string) => ({ choices: [{ message: { role: "assistant", content } }] });
+  const toolCall = (name: string) => ({
+    choices: [{ message: { role: "assistant", content: null, tool_calls: [{ id: "call_1", type: "function", function: { name, arguments: "{}" } }] } }],
+  });
+
+  function model(...answers: unknown[]) {
+    const inputs: any[] = [];
+    env.AI = {
+      async run(m: string, input: unknown) {
+        inputs.push({ model: m, ...(input as object) });
+        return answers.shift() ?? say("(no more answers)");
+      },
+    };
+    return inputs;
+  }
+
+  it("replies with the model's words, using the default model", async () => {
+    const inputs = model(toolCall("list_products"), say("We have tees, a mug and a jacket."));
+    const cid = (await start("req_llm_1", "What do you sell?")).body.conversation_id;
+    await dos.runAlarms(Date.now() + 1000);
+    const r = await events(cid);
+    expect(companyTexts(r)).toEqual(["We have tees, a mug and a jacket."]);
+    expect(r.body.events[1].message.data.products.length).toBeGreaterThan(0);
+    expect(inputs[0].model).toBe("@cf/ibm-granite/granite-4.0-h-micro");
+  });
+
+  it("gives the model the conversation so far, not the message it is answering twice", async () => {
+    const inputs = model(say("A tee."), say("Medium."));
+    const cid = (await start("req_hist_1", "Do you have tees?")).body.conversation_id;
+    await dos.runAlarms(Date.now() + 1000);
+    await send(cid, "req_hist_2", "What size?");
+    await dos.runAlarms(Date.now() + 1000);
+    expect(inputs).toHaveLength(2);
+    expect(inputs[1].messages.slice(1).map((m: any) => [m.role, m.content])).toEqual([
+      ["user", "Do you have tees?"],
+      ["assistant", "A tee."],
+      ["user", "What size?"],
+    ]);
+  });
+
+  it("raises the authorization event itself when a tool needs the account", async () => {
+    model(toolCall("get_orders"), say("Let me check."));
+    const cid = (await start("req_llm_auth", "Where is my package?")).body.conversation_id;
+    await dos.runAlarms(Date.now() + 1000);
+    const r = await events(cid);
+    expect(r.body.events.find((e: any) => e.type === "authorization")).toMatchObject({ error: "insufficient_scope", scope: "orders:read" });
+    expect(companyTexts(r)).toEqual(["Let me check."]);
+  });
+
+  it("uses the script with AI_MODEL=off", async () => {
+    const inputs = model(say("from the model"));
+    env.AI_MODEL = "off";
+    const cid = (await start("req_off_1", "What products do you sell?")).body.conversation_id;
+    await dos.runAlarms(Date.now() + 1000);
+    expect(companyTexts(await events(cid))[0]).toMatch(/We sell: /);
+    expect(inputs).toHaveLength(0);
+  });
+
+  it("uses the script when the model fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    env.AI = {
+      async run() {
+        throw new Error("daily free allocation used up");
+      },
+    };
+    const cid = (await start("req_fail_1", "What products do you sell?")).body.conversation_id;
+    await dos.runAlarms(Date.now() + 1000);
+    expect(companyTexts(await events(cid))[0]).toMatch(/We sell: /);
+  });
+});

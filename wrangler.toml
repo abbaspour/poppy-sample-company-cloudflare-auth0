@@ -15,6 +15,14 @@ AUTH0_ISSUER = "https://shop-auth.abbaspour.net/"
 # Its secrets, AUTH0_CLIENT_SECRET and AUTH0_SESSION_ENCRYPTION_KEY, are set with `make secrets`.
 AUTH0_CLIENT_ID = "aZEW8e56qohEUJiW5The29AHltUp03PA"
 
+# The Company Agent's model (§8): a Workers AI chat model with tool calling. The free plan includes
+# 10,000 neurons a day, about 0.5 per tool call; past that the agent answers from its script.
+# AI_MODEL = "off" uses the script only.
+AI_MODEL = "@cf/ibm-granite/granite-4.0-h-micro"
+
+[ai]
+binding = "AI"
+
 [[kv_namespaces]]
 binding = "SESSIONS"
 id = "7f3a9c86b2534cb782f2189a563ee9cf"   # make kv
@@ -35,6 +43,11 @@ new_sqlite_classes = ["ConversationObject"]
 COMPANY_DOMAIN = "localhost:8787"
 COMPANY_NAME = "Poppy Sample Shop (dev)"
 DEV_ALLOW_HTTP = "true"
+AI_MODEL = "@cf/ibm-granite/granite-4.0-h-micro"
+
+# runs on Cloudflare's network even under `wrangler dev`, and counts against the account's allowance
+[env.dev.ai]
+binding = "AI"
 
 [[env.dev.kv_namespaces]]
 binding = "SESSIONS"

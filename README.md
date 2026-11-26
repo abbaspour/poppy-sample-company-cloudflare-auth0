@@ -122,15 +122,27 @@ That keeps its events strictly ordered, and lets a read wait in place for the ne
 - **`?wait` on a POST** holds the request until the Company has acted on it, so the reply comes back
   in the same response (§8.3). A GET with `wait` returns at the next event, or when `working`
   turns false (§8.5).
-- **The Company Agent** ([`agent.ts`](./src/conversations/agent.ts)) is scripted, and replies about
-  a second after each request, from a Durable Object alarm, so `working` and `wait` are visible:
-  - Product questions are answered signed out.
-  - Order and return questions add an `authorization` event with the scope they need (§8.11), and
-    are answered from the account's orders once signed in.
-  - "Cancel" adds a `user_requested` event, which the agent can accept with a Direct Conversation
-    (§8.10). While that's open, the parent takes no messages.
+- **The Company Agent** ([`agent.ts`](./src/conversations/agent.ts)) is a Workers AI chat model with
+  tool calling, and replies a second or more after each request, from a Durable Object alarm, so
+  `working` and `wait` are visible. The model is `AI_MODEL` (default `@cf/ibm-granite/granite-4.0-h-micro`,
+  the cheapest function-calling chat model on Workers AI: about 1 neuron per model call, 2 to 3 for a
+  message, against the free plan's 10,000 a day). It sees the conversation's last few messages and
+  four read-only tools:
+  - `list_products`: product questions, answered signed out.
+  - `get_orders` and `get_returnable_items`: need `orders:read`. Signed out, the tool says to sign
+    in and the agent adds an `authorization` event with the scope (§8.11); signed in, it answers from
+    the account's orders. The tools read the caller's own account: the model never names one.
+  - `request_order_cancellation`: adds a `user_requested` event, which the agent can accept with a
+    Direct Conversation (§8.10). While that's open, the parent takes no messages. In a Direct
+    Conversation the customer is there, and the agent explains orders can't be cancelled and offers a return.
+  - The tools decide the protocol's events, not the model's wording, so a reply can't change them.
+    A model's unknown tool, malformed arguments or odd `order_id` is ignored, and after four rounds
+    of tool calls it has to answer with what it has.
   - A handoff (§8.9) goes `pending`, then back to `none` with a message saying no one is available.
     The demo has no staff, and doesn't pretend a person joined.
+- **The script.** With no `AI` binding, `AI_MODEL = "off"`, or any failure of the model, including a spent
+  free allowance, a keyword script answers the same questions with the same events, so the
+  conversation always works. The tests use it unless they give the Worker a fake model.
 
 ## Session verification
 

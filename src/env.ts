@@ -7,6 +7,10 @@ export interface Env {
   COMPANY_NAME: string;
   /** The Auth0 issuer, eg. https://tenant.us.auth0.com/. Empty: signed-out Sessions only (§3.2). */
   AUTH0_ISSUER?: string;
+  /** Workers AI: the Company Agent's model. Without it the scripted agent answers. */
+  AI?: { run(model: string, input: unknown): Promise<unknown> };
+  /** The Workers AI model for the Company Agent (default: src/conversations/llm.ts). "off" uses the scripted agent. */
+  AI_MODEL?: string;
   /** "true" only in local development: http and loopback URLs for the Company and Personal Agents. */
   DEV_ALLOW_HTTP?: string;
   /** The website's Auth0 Regular Web Application. The website's login is off until all three are set. */
